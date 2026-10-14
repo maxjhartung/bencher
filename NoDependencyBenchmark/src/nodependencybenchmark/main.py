@@ -26,6 +26,7 @@ else:
 BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
+    'ackley': {'dimensions': 10, 'type': 'purely_continuous'},
 }
 
 SUPPORTED_BENCHMARKS = list(BENCHMARKS)
@@ -107,6 +108,17 @@ def _pest_control_score(
         curr_pest_frac = next_pest_frac
 
     return payed_price_sum + above_threshold
+
+
+def _ackley_function(x: np.ndarray) -> float:
+    a=20
+    b=0.2
+    c=2.0*np.pi
+    n= x.size
+    term1= -a*np.exp(-b*np.sqrt(1/n *np.sum(x**2)))
+    term2= -np.exp(1/n * np.sum(np.cos(c*x)))
+    return float(term1 + term2 + a + np.exp(1))
+
 
 
 def download_mopta_executable(
@@ -236,11 +248,19 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             raise ValueError(
                 f"Invalid benchmark name {name!r}; this service serves {SUPPORTED_BENCHMARKS}")
 
-        if name == "mopta08":
+        elif name == "mopta08":
             # mopta is in [0, 1]^n so we don't need to scale
             download_mopta_executable(self._mopta_exectutable_basename)
             return self.eval_mopta08(x)
-        return _pest_control_score(x, seed=seed)
+        elif name == "ackley":
+            expected_shape = BENCHMARKS["ackley"]["dimensions"]
+            if x.shape != (expected_shape,):
+                raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
+            v=32.768
+            x=2*v*x-v
+            return _ackley_function(x)
+        elif name == "pestcontrol":
+            return _pest_control_score(x, seed=seed)
 
     def eval_mopta08(
             self,
