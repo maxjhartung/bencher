@@ -2503,5 +2503,15 @@
     "port": 50054,
     "dimensions": 10,
     "type": "purely_continuous"
+  },
+  "gramacy": {
+    "port": 50054,
+    "dimensions": 2,
+    "type": "purely_continuous"
+  },
+  "pressure_vessel": {
+    "port": 50054,
+    "dimensions": 4,
+    "type": "purely_continuous"
   }
 }

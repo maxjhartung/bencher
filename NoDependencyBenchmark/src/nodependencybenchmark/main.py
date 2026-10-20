@@ -7,7 +7,7 @@ import tempfile
 from argparse import ArgumentParser
 from platform import machine
 
-from bencherscaffold.protoclasses.bencher_pb2 import BenchmarkRequest, EvaluationResult, ObjectiveValue
+from bencherscaffold.protoclasses.bencher_pb2 import BenchmarkRequest, EvaluationResult, ObjectiveValue, Constraint, ConstraintType
 from bencherscaffold.dual_stack_service import DualStackGRCPService, add_listen_argument, resolve_listen_entries
 
 LISTEN_HOST_ENV_VAR = 'BENCHER_NODEP_HOST'
@@ -27,6 +27,8 @@ BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
     'ackley': {'dimensions': 10, 'type': 'purely_continuous'},
+    'gramacy': {'dimensions': 2, 'type': 'purely_continuous'},
+    'pressure_vessel': {'dimensions': 4, 'type': 'purely_continuous'},
 }
 
 SUPPORTED_BENCHMARKS = list(BENCHMARKS)
@@ -119,7 +121,28 @@ def _ackley_function(x: np.ndarray) -> float:
     term2= -np.exp(1/n * np.sum(np.cos(c*x)))
     return float(term1 + term2 + a + np.exp(1))
 
+def _gramacy(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+    return float(np.sum(x)), [('g0', ConstraintType.INEQUALITY, float(3/2 - x[0]-2*x[1]-1/2 *np.sin(2*np.pi*(x[0]**2 - 2*x[1])))), ('g1', ConstraintType.INEQUALITY, float(x[0]**2 + x[1]**2 - 3/2))]
 
+
+def _pressure_vessel(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+    # Objective function
+    f = 0.6224 * x[0] * x[2] * x[3] + 1.7781 * x[1] * x[2]**2 + 3.1661 * x[0]**2 * x[3] + 19.84 * x[0]**2 * x[2]
+
+    # Constraints
+    g1 = 0.0193 * x[2] - x[0]
+    g2 = 0.00954 * x[2] - x[1]
+    g3 = 1296000 - np.pi * x[2]**2 * x[3] - (4/3) * np.pi * x[2]**3
+    g4 = x[3] - 240
+
+    constraints = [
+        ('g1', ConstraintType.INEQUALITY, g1),
+        ('g2', ConstraintType.INEQUALITY, g2),
+        ('g3', ConstraintType.INEQUALITY, g3),
+        ('g4', ConstraintType.INEQUALITY, g4)
+    ]
+
+    return f, constraints
 
 def download_mopta_executable(
         executable_name: str,
@@ -227,9 +250,12 @@ class NoDependencyServiceServicer(DualStackGRCPService):
 
         """
         x = np.array([v.value for v in request.point.values])
-        value = self.evaluate(request.benchmark.name, x)
+        name = request.benchmark.name
+        seed = request.random_seed if request.HasField("random_seed") else None
+        value, constraints = self.evaluate(name, x, seed=seed)
+
         return EvaluationResult(
-            objectives=[ObjectiveValue(name="f0", value=value)],
+            objectives=[ObjectiveValue(name="f0", value=value)],constraints=[Constraint(name=n,type=t,value=v) for n,t,v in constraints]
         )
 
     def evaluate(
@@ -251,16 +277,28 @@ class NoDependencyServiceServicer(DualStackGRCPService):
         elif name == "mopta08":
             # mopta is in [0, 1]^n so we don't need to scale
             download_mopta_executable(self._mopta_exectutable_basename)
-            return self.eval_mopta08(x)
+            return self.eval_mopta08(x), [] # return empty list for unconstrained problems
         elif name == "ackley":
             expected_shape = BENCHMARKS["ackley"]["dimensions"]
             if x.shape != (expected_shape,):
                 raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
             v=32.768
             x=2*v*x-v
-            return _ackley_function(x)
+            return _ackley_function(x), []
         elif name == "pestcontrol":
-            return _pest_control_score(x, seed=seed)
+            return _pest_control_score(x, seed=seed), []
+        elif name=="gramacy":
+            expected_shape = BENCHMARKS["gramacy"]["dimensions"]
+            if x.shape != (expected_shape,):
+                raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
+            return _gramacy(x)
+        elif name=="pressure_vessel":
+            expected_shape = BENCHMARKS["pressure_vessel"]["dimensions"]
+            if x.shape != (expected_shape,):
+                raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
+            return _pressure_vessel(x)
+
+    
 
     def eval_mopta08(
             self,
