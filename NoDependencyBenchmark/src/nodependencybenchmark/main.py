@@ -28,7 +28,7 @@ BENCHMARKS = {
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
     'ackley': {'dimensions': 10, 'type': 'purely_continuous'},
     'gramacy': {'dimensions': 2, 'type': 'purely_continuous'},
-    'pressure_vessel': {'dimensions': 4, 'type': 'purely_continuous'},
+    'pressure_vessel': {'dimensions': 4, 'type': 'mixed'},
 }
 
 SUPPORTED_BENCHMARKS = list(BENCHMARKS)
@@ -127,7 +127,7 @@ def _gramacy(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
 
 def _pressure_vessel(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
     # Objective function
-    f = 0.6224 * x[0] * x[2] * x[3] + 1.7781 * x[1] * x[2]**2 + 3.1661 * x[0]**2 * x[3] + 19.84 * x[0]**2 * x[2]
+    f =float(0.6224 * x[0] * x[2] * x[3] + 1.7781 * x[1] * x[2]**2 + 3.1661 * x[0]**2 * x[3] + 19.84 * x[0]**2 * x[2])
 
     # Constraints
     g1 = 0.0193 * x[2] - x[0]
@@ -296,7 +296,17 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             expected_shape = BENCHMARKS["pressure_vessel"]["dimensions"]
             if x.shape != (expected_shape,):
                 raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
-            return _pressure_vessel(x)
+
+            #scale the input to the actual bounds of the problem
+            lower_bounds = np.array([0.0625, 0.0625, 10, 10])
+            upper_bounds = np.array([6.1875, 6.1875, 200, 200])
+            n_levels = 99
+            idx=np.minimum(np.floor(x[:2]*n_levels), n_levels-1).astype(int)
+            x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
+            
+            x_scaled[:2] = (idx+1) * 0.0625
+
+            return _pressure_vessel(x_scaled)
 
     
 

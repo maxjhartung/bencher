@@ -2512,6 +2512,6 @@
   "pressure_vessel": {
     "port": 50054,
     "dimensions": 4,
-    "type": "purely_continuous"
+    "type": "mixed"
   }
 }
