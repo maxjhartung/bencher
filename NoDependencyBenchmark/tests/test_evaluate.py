@@ -22,9 +22,9 @@ def test_servicer_constructs_on_any_architecture(servicer):
 
 
 def test_registry_shape_is_declared():
-    assert set(BENCHMARKS) == {"mopta08", "pestcontrol", "ackley", "gramacy", "pressure_vessel"}
+    assert set(BENCHMARKS) == {"mopta08","mopta08-constrained", "pestcontrol", "ackley", "gramacy", "pressure-vessel","welded-beam","tension-compression-spring"}
     assert BENCHMARKS["pestcontrol"]["dimensions"] == 25
-    assert BENCHMARKS["pressure_vessel"]["dimensions"] == 4
+    assert BENCHMARKS["pressure-vessel"]["dimensions"] == 4
 
 
 class TestPestControl:
@@ -136,7 +136,55 @@ class TestEvaluatePoint:
 class TestPressureVessel:
     def test_known_values(self, servicer):
         """Test known values for the pressure vessel benchmark."""
-        x = np.array([0.812500, 0.437500, 42.097398, 176.654047])
-        value, constraints = servicer.evaluate('pressure_vessel', x)
+        x = np.array([12.5/99, 6.5/99, (42.097398-10)/190, (176.654047-10)/190])
+        c=np.array([-0.000020,-0.035891,-27.886075,-63.345953,-63.345953])
+        test_x = np.array([0.812500, 0.437500, 42.097398, 176.654047])
+        lower_bounds = np.array([0.0625, 0.0625, 10, 10])
+        upper_bounds = np.array([6.1875, 6.1875, 200, 200])
+        n_levels = 99
+        idx=np.minimum(np.floor(x[:2]*n_levels), n_levels-1).astype(int)
+        x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
+        
+        x_scaled[:2] = (idx+1) * 0.0625
+
+        lower_bounds = np.array([0.0625, 0.0625, 10, 10])
+        upper_bounds = np.array([6.1875, 6.1875, 200, 200])
+        
+        value, constraints = servicer.evaluate('pressure-vessel', x)
+
         assert value == pytest.approx(6059.946341, abs=1e-2)  # Example expected value
         assert all(np.isfinite(v) for _, _, v in constraints)
+        assert all(x_scaled==test_x)
+        assert [v for _, _, v in constraints] == pytest.approx(c, abs=1e-2)
+
+class TestWeldedBeam:
+    def test_known_values(self, servicer):
+        """Test known values for the welded beam benchmark."""
+        x = np.array([0.205986, 3.471328, 9.020224, 0.206480])
+        c=np.array([-0.074092,-0.266227,-0.000495,-3.430043,-0.080986,-0.235514,-58.666440])
+        #scale back to [0,1]
+        lower_bounds=np.array([0.1,0.1,0.1,0.1])
+        upper_bounds=np.array([2.0,10.0,10.0,2.0])
+        x_scaled = (x-lower_bounds)/(upper_bounds - lower_bounds) 
+        value, constraints = servicer.evaluate('welded-beam', x_scaled)
+        assert value == pytest.approx(1.728226, abs=1e-2)  # Example expected value
+        assert all(np.isfinite(v) for _, _, v in constraints)
+        # g1, g2 and g7 are differences of ~1e4-sized quantities (tau, sigma,
+        # P_c), so the 6-digit rounding of the published x shifts them by a few
+        # 1e-2; the geometric constraints match to ~1e-6.
+        print(constraints)
+        assert [v for _, _, v in constraints] == pytest.approx(c, abs=1e-2)
+
+class TestTensionCompressionSpring:
+    def test_known_values(self, servicer):
+        """Test known values for the tension compression spring benchmark."""
+        x = np.array([0.051989, 0.363965, 10.890522])
+        c=np.array([-0.000013,-0.000021,-4.061338,-0.722698])
+        #scale back to [0,1]
+        lower_bounds=np.array([0.05,0.25,2.0])
+        upper_bounds=np.array([2.0,1.3,15.0])
+        x_scaled = (x-lower_bounds)/(upper_bounds - lower_bounds) 
+        value, constraints = servicer.evaluate('tension-compression-spring', x_scaled)
+        assert value == pytest.approx(0.012681, abs=1e-2)  # Example expected value
+        assert all(np.isfinite(v) for _, _, v in constraints)
+        assert [v for _, _, v in constraints] == pytest.approx(c, abs=1e-2)

@@ -25,10 +25,13 @@ else:
 # (see tests/test_registry.py).
 BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
+    'mopta08-constrained': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
     'ackley': {'dimensions': 10, 'type': 'purely_continuous'},
     'gramacy': {'dimensions': 2, 'type': 'purely_continuous'},
-    'pressure_vessel': {'dimensions': 4, 'type': 'mixed'},
+    'pressure-vessel': {'dimensions': 4, 'type': 'mixed'},
+    'welded-beam': {'dimensions': 4, 'type': 'purely_continuous'},
+    'tension-compression-spring': {'dimensions': 3, 'type': 'purely_continuous'},
 }
 
 SUPPORTED_BENCHMARKS = list(BENCHMARKS)
@@ -144,6 +147,69 @@ def _pressure_vessel(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]
 
     return f, constraints
 
+
+
+def _welded_beam(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+
+    f=float(1.10471 * x[0]**2 * x[1] + 0.04811 * x[2] * x[3] * (14.0 + x[1]))
+
+    P=6000
+    L=14
+    E=3e7
+    G=12e6
+    tau_max=13600
+    sigma_max=30000
+    delta_max=0.25
+
+
+    R=np.sqrt((x[1]**2)/4 +((x[0]+x[2])/2)**2)
+    J=2*(np.sqrt(2)*x[0]*x[1]*(x[1]**2 /12 + ((x[0]+x[2])/2)**2 ))
+    M=P*(L+x[1]/2)
+
+    sigma= 6*P*L/(x[3]*x[2]**2)
+    delta=4*P*L**3 /(E*(x[2]**3) *x[3])
+    P_c=(4.013*E*np.sqrt((x[2]**2) *(x[3]**6) /36)/(L**2))*(1- x[2]/(2*L) *np.sqrt(E/(4.0*G)))
+
+    tau_prime= P/(np.sqrt(2) * x[0] * x[1])
+    tau_double_prime= M * R/(J)
+    tau= np.sqrt(tau_prime**2 + 2 * tau_prime * tau_double_prime * x[1]/(2*R) + tau_double_prime**2)
+
+    
+
+
+    g1= tau - tau_max
+    g2= sigma-sigma_max
+    g3=x[0]-x[3]
+    g4=0.10471*x[0]**2 +0.04811*x[2]*x[3]*(14.0+x[1])-5.0
+    g5=0.125-x[0]
+    g6=delta-delta_max
+    g7=P-P_c
+
+    constraints= [('g1', ConstraintType.INEQUALITY, g1),
+                  ('g2', ConstraintType.INEQUALITY, g2),
+                  ('g3', ConstraintType.INEQUALITY, g3),
+                  ('g4', ConstraintType.INEQUALITY, g4),
+                  ('g5', ConstraintType.INEQUALITY, g5),
+                  ('g6', ConstraintType.INEQUALITY, g6),
+                  ('g7', ConstraintType.INEQUALITY, g7)]
+
+    return f, constraints
+
+def _tension_compression_spring(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+    f=(x[2]+2)*x[1]*x[0]**2
+
+    g1=1-(x[1]**3)*x[2]/(71785*x[0]**4)
+    g2=(4*x[1]**2 - x[0]*x[1])/(12566*(x[1]*x[0]**3 -x[0]**4)) + 1/(5108*x[0]**2) -1
+    g3=1-140.45*x[0]/((x[1]**2)*x[2])
+    g4=(x[1]+x[0])/1.5 -1
+
+    constraints= [('g1', ConstraintType.INEQUALITY, g1),
+                      ('g2', ConstraintType.INEQUALITY, g2),
+                      ('g3', ConstraintType.INEQUALITY, g3),
+                      ('g4', ConstraintType.INEQUALITY, g4),
+                      ]
+    return f, constraints
+
 def download_mopta_executable(
         executable_name: str,
 ):
@@ -201,6 +267,9 @@ def mopta_executable_basename() -> str:
             f"supported: {sorted({m for m, _ in _MOPTA_EXECUTABLES})}"
         )
     return _MOPTA_EXECUTABLES[key]
+
+
+
 
 
 class NoDependencyServiceServicer(DualStackGRCPService):
@@ -278,6 +347,11 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             # mopta is in [0, 1]^n so we don't need to scale
             download_mopta_executable(self._mopta_exectutable_basename)
             return self.eval_mopta08(x), [] # return empty list for unconstrained problems
+        elif name == "mopta08-constrained":
+            # mopta is in [0, 1]^n so we don't need to scale
+            download_mopta_executable(self._mopta_exectutable_basename)
+            return self.eval_mopta08_constrained(x)
+        
         elif name == "ackley":
             expected_shape = BENCHMARKS["ackley"]["dimensions"]
             if x.shape != (expected_shape,):
@@ -292,8 +366,8 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             if x.shape != (expected_shape,):
                 raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
             return _gramacy(x)
-        elif name=="pressure_vessel":
-            expected_shape = BENCHMARKS["pressure_vessel"]["dimensions"]
+        elif name=="pressure-vessel":
+            expected_shape = BENCHMARKS["pressure-vessel"]["dimensions"]
             if x.shape != (expected_shape,):
                 raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
 
@@ -307,9 +381,29 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             x_scaled[:2] = (idx+1) * 0.0625
 
             return _pressure_vessel(x_scaled)
+        
+        elif name=='welded-beam':
+            expected_shape = BENCHMARKS["welded-beam"]["dimensions"]
+            if x.shape != (expected_shape,):
+                raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
+            lower_bounds=np.array([0.1,0.1,0.1,0.1])
+            upper_bounds=np.array([2.0,10.0,10.0,2.0])
+            x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
 
-    
+            return _welded_beam(x_scaled)
 
+        elif name=='tension-compression-spring':
+            expected_shape = BENCHMARKS["tension-compression-spring"]["dimensions"]
+            if x.shape != (expected_shape,):
+                raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
+            lower_bounds=np.array([0.05,0.25,2.0])
+            upper_bounds=np.array([2.0,1.3,15.0])
+            x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
+
+            return _tension_compression_spring(x_scaled)
+
+
+            
     def eval_mopta08(
             self,
             x: np.ndarray
@@ -347,6 +441,43 @@ class NoDependencyServiceServicer(DualStackGRCPService):
         constraints = output[1:]
         # see https://arxiv.org/pdf/2103.00349.pdf E.7
         return float(value + 10 * np.sum(np.clip(constraints, a_min=0, a_max=None)))
+    def eval_mopta08_constrained(
+            self,
+            x: np.ndarray
+    ) -> tuple[float, list[tuple[str,int,float]]]:
+        """
+        Evaluate the function with the given input.
+
+        :param x: Input array.
+        :type x: np.ndarray
+        :return: The evaluated result and the list of constraints.
+        :rtype: tuple[float, list[tuple[str,int,float]]]
+        """
+        x = x.squeeze()
+        assert x.ndim == 1
+        # write input to file in dir
+        with open(os.path.join(self.directory_name, "input.txt"), "w+") as tmp_file:
+            for _x in x:
+                tmp_file.write(f"{_x}\n")
+        # pass directory as working directory to process
+        popen = subprocess.Popen(
+            self._mopta_exectutable,
+            stdout=subprocess.PIPE,
+            cwd=self.directory_name,
+        )
+        popen.wait()
+        # read and parse output file
+        output = (
+            open(os.path.join(self.directory_name, "output.txt"), "r")
+            .read()
+            .split("\n")
+        )
+        output = [x.strip() for x in output]
+        output = np.array([float(x) for x in output if len(x) > 0])
+        value = output[0]
+        constraints = [(f'g{i+1}', ConstraintType.INEQUALITY, float(g)) for i,g in enumerate(output[1:])]
+        # see https://arxiv.org/pdf/2103.00349.pdf E.7
+        return float (value), constraints
 
 
 def serve():
