@@ -7,7 +7,7 @@ import tempfile
 from argparse import ArgumentParser
 from platform import machine
 
-from bencherscaffold.protoclasses.bencher_pb2 import BenchmarkRequest, EvaluationResult, ObjectiveValue
+from bencherscaffold.protoclasses.bencher_pb2 import BenchmarkRequest, EvaluationResult, ObjectiveValue, Constraint, ConstraintType
 from bencherscaffold.dual_stack_service import DualStackGRCPService, add_listen_argument, resolve_listen_entries
 
 LISTEN_HOST_ENV_VAR = 'BENCHER_NODEP_HOST'
@@ -25,6 +25,7 @@ else:
 # (see tests/test_registry.py).
 BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
+    'mopta08-constrained': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
 }
 
@@ -109,6 +110,7 @@ def _pest_control_score(
     return payed_price_sum + above_threshold
 
 
+
 def download_mopta_executable(
         executable_name: str,
 ):
@@ -168,6 +170,9 @@ def mopta_executable_basename() -> str:
     return _MOPTA_EXECUTABLES[key]
 
 
+
+
+
 class NoDependencyServiceServicer(DualStackGRCPService):
 
     def __init__(
@@ -215,9 +220,12 @@ class NoDependencyServiceServicer(DualStackGRCPService):
 
         """
         x = np.array([v.value for v in request.point.values])
-        value = self.evaluate(request.benchmark.name, x)
+        name = request.benchmark.name
+        seed = request.random_seed if request.HasField("random_seed") else None
+        value, constraints = self.evaluate(name, x, seed=seed)
+
         return EvaluationResult(
-            objectives=[ObjectiveValue(name="f0", value=value)],
+            objectives=[ObjectiveValue(name="f0", value=value)],constraints=[Constraint(name=n,type=t,value=v) for n,t,v in constraints]
         )
 
     def evaluate(
@@ -236,12 +244,14 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             raise ValueError(
                 f"Invalid benchmark name {name!r}; this service serves {SUPPORTED_BENCHMARKS}")
 
-        if name == "mopta08":
+        elif name == "mopta08":
             # mopta is in [0, 1]^n so we don't need to scale
             download_mopta_executable(self._mopta_exectutable_basename)
-            return self.eval_mopta08(x)
-        return _pest_control_score(x, seed=seed)
+            return self.eval_mopta08(x), [] # return empty list for unconstrained problems
+        elif name == "pestcontrol":
+            return _pest_control_score(x, seed=seed), []
 
+            
     def eval_mopta08(
             self,
             x: np.ndarray
@@ -279,6 +289,7 @@ class NoDependencyServiceServicer(DualStackGRCPService):
         constraints = output[1:]
         # see https://arxiv.org/pdf/2103.00349.pdf E.7
         return float(value + 10 * np.sum(np.clip(constraints, a_min=0, a_max=None)))
+
 
 
 def serve():
