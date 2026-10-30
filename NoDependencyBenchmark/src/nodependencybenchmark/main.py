@@ -26,6 +26,7 @@ else:
 BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
+    'gramacy': {'dimensions': 2, 'type': 'purely_continuous'},
 }
 
 SUPPORTED_BENCHMARKS = list(BENCHMARKS)
@@ -107,6 +108,12 @@ def _pest_control_score(
         curr_pest_frac = next_pest_frac
 
     return payed_price_sum + above_threshold
+
+
+
+def _gramacy(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+    return float(np.sum(x)), [('g0', ConstraintType.INEQUALITY, float(3/2 - x[0]-2*x[1]-1/2 *np.sin(2*np.pi*(x[0]**2 - 2*x[1])))), ('g1', ConstraintType.INEQUALITY, float(x[0]**2 + x[1]**2 - 3/2))]
+
 
 
 
@@ -249,6 +256,12 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             return self.eval_mopta08(x), [] # return empty list for unconstrained problems
         elif name == "pestcontrol":
             return _pest_control_score(x, seed=seed), []
+        elif name=="gramacy":
+            expected_shape = BENCHMARKS["gramacy"]["dimensions"]
+            if x.shape != (expected_shape,):
+                raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
+            return _gramacy(x)
+
 
             
     def eval_mopta08(
@@ -288,8 +301,7 @@ class NoDependencyServiceServicer(DualStackGRCPService):
         constraints = output[1:]
         # see https://arxiv.org/pdf/2103.00349.pdf E.7
         return float(value + 10 * np.sum(np.clip(constraints, a_min=0, a_max=None)))
-
-
+    
 
 def serve():
     parser = ArgumentParser()
