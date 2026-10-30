@@ -25,7 +25,6 @@ else:
 # (see tests/test_registry.py).
 BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
-    'mopta08-constrained': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
     'ackley': {'dimensions': 10, 'type': 'purely_continuous'},
 }
