@@ -26,6 +26,7 @@ else:
 BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
+    'tension-compression-spring': {'dimensions': 3, 'type': 'purely_continuous'},
 }
 
 SUPPORTED_BENCHMARKS = list(BENCHMARKS)
@@ -109,6 +110,21 @@ def _pest_control_score(
     return payed_price_sum + above_threshold
 
 
+
+def _tension_compression_spring(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+    f=(x[2]+2)*x[1]*x[0]**2
+
+    g1=1-(x[1]**3)*x[2]/(71785*x[0]**4)
+    g2=(4*x[1]**2 - x[0]*x[1])/(12566*(x[1]*x[0]**3 -x[0]**4)) + 1/(5108*x[0]**2) -1
+    g3=1-140.45*x[0]/((x[1]**2)*x[2])
+    g4=(x[1]+x[0])/1.5 -1
+
+    constraints= [('g1', ConstraintType.INEQUALITY, g1),
+                      ('g2', ConstraintType.INEQUALITY, g2),
+                      ('g3', ConstraintType.INEQUALITY, g3),
+                      ('g4', ConstraintType.INEQUALITY, g4),
+                      ]
+    return f, constraints
 
 def download_mopta_executable(
         executable_name: str,
@@ -249,6 +265,16 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             return self.eval_mopta08(x), [] # return empty list for unconstrained problems
         elif name == "pestcontrol":
             return _pest_control_score(x, seed=seed), []
+        elif name=='tension-compression-spring':
+            expected_shape = BENCHMARKS["tension-compression-spring"]["dimensions"]
+            if x.shape != (expected_shape,):
+                raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
+            lower_bounds=np.array([0.05,0.25,2.0])
+            upper_bounds=np.array([2.0,1.3,15.0])
+            x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
+
+            return _tension_compression_spring(x_scaled)
+
 
             
     def eval_mopta08(
@@ -288,8 +314,7 @@ class NoDependencyServiceServicer(DualStackGRCPService):
         constraints = output[1:]
         # see https://arxiv.org/pdf/2103.00349.pdf E.7
         return float(value + 10 * np.sum(np.clip(constraints, a_min=0, a_max=None)))
-
-
+    
 
 def serve():
     parser = ArgumentParser()
