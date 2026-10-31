@@ -74,14 +74,14 @@ class TestDispatch:
 class TestWeldedBeam:
     def test_known_values(self, servicer):
         """Test known values for the welded beam benchmark."""
-        x = np.array([0.205986, 3.471328, 9.020224, 0.206480])
-        c=np.array([-0.074092,-0.266227,-0.000495,-3.430043,-0.080986,-0.235514,-58.666440])
+        x=np.array([0.2489, 6.1730, 8.1789, 0.2533])
+        c=np.array([-5758.6037772, -255.5769012, -0.004400, -2.9828662, -0.1239002, -0.2341602, -4465.270928])
         #scale back to [0,1]
         lower_bounds=np.array([0.1,0.1,0.1,0.1])
         upper_bounds=np.array([2.0,10.0,10.0,2.0])
         x_scaled = (x-lower_bounds)/(upper_bounds - lower_bounds) 
         value, constraints = servicer.evaluate('welded-beam', x_scaled)
-        assert value == pytest.approx(1.728226, abs=1e-2)  # Example expected value
+        assert value == pytest.approx(2.43311600, abs=1e-2)  # Example expected value
         assert all(np.isfinite(v) for _, _, v in constraints)
         # g1, g2 and g7 are differences of ~1e4-sized quantities (tau, sigma,
         # P_c), so the 6-digit rounding of the published x shifts them by a few
