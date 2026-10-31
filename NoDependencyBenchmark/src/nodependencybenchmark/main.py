@@ -25,6 +25,7 @@ else:
 # (see tests/test_registry.py).
 BENCHMARKS = {
     'mopta08': {'dimensions': 124, 'type': 'purely_continuous'},
+    'mopta08-constrained': {'dimensions': 124, 'type': 'purely_continuous'},
     'pestcontrol': {'dimensions': 25, 'type': 'purely_categorical'},
 }
 
@@ -107,6 +108,7 @@ def _pest_control_score(
         curr_pest_frac = next_pest_frac
 
     return payed_price_sum + above_threshold
+
 
 
 
@@ -247,8 +249,13 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             # mopta is in [0, 1]^n so we don't need to scale
             download_mopta_executable(self._mopta_exectutable_basename)
             return self.eval_mopta08(x), [] # return empty list for unconstrained problems
+        elif name == "mopta08-constrained":
+            # mopta is in [0, 1]^n so we don't need to scale
+            download_mopta_executable(self._mopta_exectutable_basename)
+            return self.eval_mopta08_constrained(x)
         elif name == "pestcontrol":
             return _pest_control_score(x, seed=seed), []
+
 
             
     def eval_mopta08(
@@ -288,7 +295,43 @@ class NoDependencyServiceServicer(DualStackGRCPService):
         constraints = output[1:]
         # see https://arxiv.org/pdf/2103.00349.pdf E.7
         return float(value + 10 * np.sum(np.clip(constraints, a_min=0, a_max=None)))
+    def eval_mopta08_constrained(
+            self,
+            x: np.ndarray
+    ) -> tuple[float, list[tuple[str,int,float]]]:
+        """
+        Evaluate the function with the given input.
 
+        :param x: Input array.
+        :type x: np.ndarray
+        :return: The evaluated result and the list of constraints.
+        :rtype: tuple[float, list[tuple[str,int,float]]]
+        """
+        x = x.squeeze()
+        assert x.ndim == 1
+        # write input to file in dir
+        with open(os.path.join(self.directory_name, "input.txt"), "w+") as tmp_file:
+            for _x in x:
+                tmp_file.write(f"{_x}\n")
+        # pass directory as working directory to process
+        popen = subprocess.Popen(
+            self._mopta_exectutable,
+            stdout=subprocess.PIPE,
+            cwd=self.directory_name,
+        )
+        popen.wait()
+        # read and parse output file
+        output = (
+            open(os.path.join(self.directory_name, "output.txt"), "r")
+            .read()
+            .split("\n")
+        )
+        output = [x.strip() for x in output]
+        output = np.array([float(x) for x in output if len(x) > 0])
+        value = output[0]
+        constraints = [(f'g{i+1}', ConstraintType.INEQUALITY, float(g)) for i,g in enumerate(output[1:])]
+        # see https://arxiv.org/pdf/2103.00349.pdf E.7
+        return float (value), constraints
 
 
 def serve():
