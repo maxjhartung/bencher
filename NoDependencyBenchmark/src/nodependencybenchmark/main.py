@@ -115,39 +115,39 @@ def _pest_control_score(
 
 def _welded_beam(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
 
-    f=float(1.10471 * x[0]**2 * x[1] + 0.04811 * x[2] * x[3] * (14.0 + x[1]))
+    f = float(1.10471 * x[0]**2 * x[1] + 0.04811 * x[2] * x[3] * (14.0 + x[1]))
 
-    P=6000
-    L=14
-    E=3e7
-    G=12e6
-    tau_max=13600
-    sigma_max=30000
-    delta_max=0.25
+    P = 6000
+    L = 14
+    E = 3e7
+    G = 12e6
+    tau_max = 13600
+    sigma_max = 30000
+    delta_max = 0.25
 
 
-    R=np.sqrt((x[1]**2)/4 +((x[0]+x[2])/2)**2)
-    J=2*(np.sqrt(2)*x[0]*x[1]*(x[1]**2 /12 + ((x[0]+x[2])/2)**2 ))
-    M=P*(L+x[1]/2)
+    R = np.sqrt((x[1]**2) / 4 + ((x[0] + x[2]) / 2)**2)
+    J = 2*(np.sqrt(2) * x[0] * x[1] * (x[1]**2 / 12 + ((x[0] + x[2]) / 2)**2 ))
+    M = P * (L + x[1] / 2)
 
-    sigma= 6*P*L/(x[3]*x[2]**2)
-    delta=4*P*L**3 /(E*(x[2]**3) *x[3])
-    P_c=(4.013*E*np.sqrt((x[2]**2) *(x[3]**6) /36)/(L**2))*(1- x[2]/(2*L) *np.sqrt(E/(4.0*G)))
+    sigma = 6 * P * L / (x[3] * x[2]**2)
+    delta = 4 * P * L**3 / (E * (x[2]**3) * x[3])
+    P_c = (4.013 * E * np.sqrt((x[2]**2) *(x[3]**6) / 36) / (L**2)) * (1 - x[2] / (2 * L) *np.sqrt(E / (4.0 * G)))
 
-    tau_prime= P/(np.sqrt(2) * x[0] * x[1])
-    tau_double_prime= M * R/(J)
-    tau= np.sqrt(tau_prime**2 + 2 * tau_prime * tau_double_prime * x[1]/(2*R) + tau_double_prime**2)
+    tau_prime = P / (np.sqrt(2) * x[0] * x[1])
+    tau_double_prime = M * R / (J)
+    tau = np.sqrt(tau_prime**2 + 2 * tau_prime * tau_double_prime * x[1]/(2*R) + tau_double_prime**2)
 
     
 
 
-    g1= tau - tau_max
-    g2= sigma-sigma_max
-    g3=x[0]-x[3]
-    g4=0.10471*x[0]**2 +0.04811*x[2]*x[3]*(14.0+x[1])-5.0
-    g5=0.125-x[0]
-    g6=delta-delta_max
-    g7=P-P_c
+    g1 = tau - tau_max
+    g2 = sigma - sigma_max
+    g3 = x[0] - x[3]
+    g4 = 0.10471 * x[0]**2 + 0.04811 * x[2] * x[3] * (14.0 + x[1]) - 5.0
+    g5 = 0.125 - x[0]
+    g6 = delta - delta_max
+    g7 = P - P_c
 
     constraints= [('g1', ConstraintType.INEQUALITY, g1),
                   ('g2', ConstraintType.INEQUALITY, g2),
@@ -300,12 +300,12 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             return self.eval_mopta08(x), [] # return empty list for unconstrained problems
         elif name == "pestcontrol":
             return _pest_control_score(x, seed=seed), []
-        elif name=='welded-beam':
+        elif name == 'welded-beam':
             expected_shape = BENCHMARKS["welded-beam"]["dimensions"]
             if x.shape != (expected_shape,):
                 raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
-            lower_bounds=np.array([0.1,0.1,0.1,0.1])
-            upper_bounds=np.array([2.0,10.0,10.0,2.0])
+            lower_bounds = np.array([0.1, 0.1, 0.1, 0.1])
+            upper_bounds = np.array([2.0, 10.0, 10.0, 2.0])
             x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
 
             return _welded_beam(x_scaled)

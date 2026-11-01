@@ -81,10 +81,7 @@ class TestWeldedBeam:
         upper_bounds=np.array([2.0,10.0,10.0,2.0])
         x_scaled = (x-lower_bounds)/(upper_bounds - lower_bounds) 
         value, constraints = servicer.evaluate('welded-beam', x_scaled)
-        assert value == pytest.approx(2.43311600, abs=1e-2)  # Example expected value
+        assert value == pytest.approx(2.43311600, abs=1e-2)
         assert all(np.isfinite(v) for _, _, v in constraints)
-        # g1, g2 and g7 are differences of ~1e4-sized quantities (tau, sigma,
-        # P_c), so the 6-digit rounding of the published x shifts them by a few
-        # 1e-2; the geometric constraints match to ~1e-6.
         print(constraints)
         assert [v for _, _, v in constraints] == pytest.approx(c, abs=1e-2)
