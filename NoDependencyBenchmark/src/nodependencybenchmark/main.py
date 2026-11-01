@@ -283,7 +283,7 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             name: str,
             x: np.ndarray,
             seed: int | None = None
-    ) -> float:
+    ) -> tuple[float, list[tuple[str, int, float]]]:
         """Evaluate a point in the benchmark's native domain.
 
         Split out of evaluate_point so normalisation and dispatch can be tested
