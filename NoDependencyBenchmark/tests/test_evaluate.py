@@ -22,7 +22,7 @@ def test_servicer_constructs_on_any_architecture(servicer):
 
 
 def test_registry_shape_is_declared():
-    assert set(BENCHMARKS) == {"mopta08","mopta08-constrained", "pestcontrol"}
+    assert set(BENCHMARKS) == {"mopta08", "mopta08-constrained", "pestcontrol"}
     assert BENCHMARKS["pestcontrol"]["dimensions"] == 25
 
 
