@@ -2499,34 +2499,9 @@
     "dimensions": 10100,
     "type": "purely_integer"
   },
-  "ackley": {
-    "port": 50054,
-    "dimensions": 10,
-    "type": "purely_continuous"
-  },
-  "gramacy": {
-    "port": 50054,
-    "dimensions": 2,
-    "type": "purely_continuous"
-  },
-  "pressure-vessel": {
-    "port": 50054,
-    "dimensions": 4,
-    "type": "mixed"
-  },
-  "welded-beam": {
-    "port": 50054,
-    "dimensions": 4,
-    "type": "purely_continuous"
-  },
   "tension-compression-spring": {
     "port": 50054,
     "dimensions": 3,
-    "type": "purely_continuous"
-  },
-  "mopta08-constrained": {
-    "port": 50054,
-    "dimensions": 124,
     "type": "purely_continuous"
   }
 }

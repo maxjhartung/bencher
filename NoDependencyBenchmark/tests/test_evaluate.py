@@ -74,10 +74,10 @@ class TestTensionCompressionSpring:
     def test_known_values(self, servicer):
         """Test known values for the tension compression spring benchmark."""
         x = np.array([0.051989, 0.363965, 10.890522])
-        c=np.array([-0.000013,-0.000021,-4.061338,-0.722698])
+        c = np.array([-0.000013,-0.000021,-4.061338,-0.722698])
         #scale back to [0,1]
-        lower_bounds=np.array([0.05,0.25,2.0])
-        upper_bounds=np.array([2.0,1.3,15.0])
+        lower_bounds = np.array([0.05,0.25,2.0])
+        upper_bounds = np.array([2.0,1.3,15.0])
         x_scaled = (x-lower_bounds)/(upper_bounds - lower_bounds) 
         value, constraints = servicer.evaluate('tension-compression-spring', x_scaled)
         assert value == pytest.approx(0.012681, abs=1e-2)  # Example expected value

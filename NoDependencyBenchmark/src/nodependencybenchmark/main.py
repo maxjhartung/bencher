@@ -112,17 +112,17 @@ def _pest_control_score(
 
 
 def _tension_compression_spring(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
-    f=(x[2]+2)*x[1]*x[0]**2
+    f = float((x[2] + 2) * x[1] * x[0]**2)
 
-    g1=1-(x[1]**3)*x[2]/(71785*x[0]**4)
-    g2=(4*x[1]**2 - x[0]*x[1])/(12566*(x[1]*x[0]**3 -x[0]**4)) + 1/(5108*x[0]**2) -1
-    g3=1-140.45*x[0]/((x[1]**2)*x[2])
-    g4=(x[1]+x[0])/1.5 -1
+    g1 = 1 - (x[1]**3) * x[2] / (71785 * x[0]**4)
+    g2 = (4 * x[1]**2 - x[0] * x[1]) / (12566 * (x[1] * x[0]**3 - x[0]**4)) + 1 / (5108 * x[0]**2) - 1
+    g3 = 1 - 140.45 * x[0] / ((x[1]**2) * x[2])
+    g4 = (x[1] + x[0]) / 1.5 - 1
 
-    constraints= [('g1', ConstraintType.INEQUALITY, g1),
-                      ('g2', ConstraintType.INEQUALITY, g2),
-                      ('g3', ConstraintType.INEQUALITY, g3),
-                      ('g4', ConstraintType.INEQUALITY, g4),
+    constraints= [('g1', ConstraintType.INEQUALITY, float(g1)),
+                  ('g2', ConstraintType.INEQUALITY, float(g2)),
+                  ('g3', ConstraintType.INEQUALITY, float(g3)),
+                  ('g4', ConstraintType.INEQUALITY, float(g4)),
                       ]
     return f, constraints
 
@@ -248,7 +248,7 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             name: str,
             x: np.ndarray,
             seed: int | None = None
-    ) -> float:
+    ) -> tuple[float, list[tuple[str, int, float]]]:
         """Evaluate a point in the benchmark's native domain.
 
         Split out of evaluate_point so normalisation and dispatch can be tested
@@ -265,12 +265,12 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             return self.eval_mopta08(x), [] # return empty list for unconstrained problems
         elif name == "pestcontrol":
             return _pest_control_score(x, seed=seed), []
-        elif name=='tension-compression-spring':
+        elif name =='tension-compression-spring':
             expected_shape = BENCHMARKS["tension-compression-spring"]["dimensions"]
             if x.shape != (expected_shape,):
                 raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
-            lower_bounds=np.array([0.05,0.25,2.0])
-            upper_bounds=np.array([2.0,1.3,15.0])
+            lower_bounds = np.array([0.05, 0.25, 2.0])
+            upper_bounds = np.array([2.0, 1.3, 15.0])
             x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
 
             return _tension_compression_spring(x_scaled)
