@@ -112,7 +112,16 @@ def _pest_control_score(
 
 
 def _gramacy(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
-    return float(np.sum(x)), [('g0', ConstraintType.INEQUALITY, float(3/2 - x[0]-2*x[1]-1/2 *np.sin(2*np.pi*(x[0]**2 - 2*x[1])))), ('g1', ConstraintType.INEQUALITY, float(x[0]**2 + x[1]**2 - 3/2))]
+    f = np.sum(x)
+
+    g0 = 3/2 - x[0]-2*x[1]-1/2 *np.sin(2*np.pi*(x[0]**2 - 2*x[1]))
+    g1 = x[0]**2 + x[1]**2 - 3/2
+
+    constraints = [('g0', ConstraintType.INEQUALITY, float(g0)),
+                 ('g1', ConstraintType.INEQUALITY, float(g1))
+                ]
+    
+    return float(f), constraints
 
 
 
@@ -239,7 +248,7 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             name: str,
             x: np.ndarray,
             seed: int | None = None
-    ) -> float:
+    ) -> tuple[float, list[tuple[str, int, float]]]:
         """Evaluate a point in the benchmark's native domain.
 
         Split out of evaluate_point so normalisation and dispatch can be tested
@@ -256,7 +265,7 @@ class NoDependencyServiceServicer(DualStackGRCPService):
             return self.eval_mopta08(x), [] # return empty list for unconstrained problems
         elif name == "pestcontrol":
             return _pest_control_score(x, seed=seed), []
-        elif name=="gramacy":
+        elif name == "gramacy":
             expected_shape = BENCHMARKS["gramacy"]["dimensions"]
             if x.shape != (expected_shape,):
                 raise ValueError(f"Input shape {x.shape} does not match expected shape {expected_shape}")
