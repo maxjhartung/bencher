@@ -73,26 +73,26 @@ class TestDispatch:
 
 
 class TestGramacy:
-    @pytest.mark.parametrize("x, f, g0, g1", [
+    @pytest.mark.parametrize("x, f, g1, g2", [
         ((0.5, 0.5), 1.0, -0.5, -1.0),   # feasible
         ((0.0, 0.0), 0.0, 1.5, -1.5),    # violates g0 only
         ((1.0, 1.0), 2.0, -1.5, 0.5),    # violates g1 only
     ])
-    def test_known_values(self, servicer, x, f, g0, g1):
+    def test_known_values(self, servicer, x, f, g1, g2):
         value, constraints = servicer.evaluate('gramacy', np.array(x))
         assert value == pytest.approx(f)
-        assert [v for _, _, v in constraints] == pytest.approx([g0, g1])
+        assert [v for _, _, v in constraints] == pytest.approx([g1, g2])
 
     def test_published_optimum_is_feasible_and_active(self, servicer):
-        """Gramacy et al. (2016): x* ~ (0.1954, 0.4044), f* ~ 0.5998, g0 active."""
+        """Gramacy et al. (2016): x* ~ (0.1954, 0.4044), f* ~ 0.5998, g1 active."""
         value, constraints = servicer.evaluate('gramacy', np.array([0.1954, 0.4044]))
         assert value == pytest.approx(0.5998, abs=1e-4)
-        g0, g1 = (v for _, _, v in constraints)
-        assert abs(g0) < 1e-3 and g1 < 0
+        g1, g2 = (v for _, _, v in constraints)
+        assert abs(g1) < 1e-3 and g2 < 0
 
     def test_constraints_are_named_inequalities(self, servicer):
         _, constraints = servicer.evaluate('gramacy', np.array([0.5, 0.5]))
-        assert [n for n, _, _ in constraints] == ["g0", "g1"]
+        assert [n for n, _, _ in constraints] == ["g1", "g2"]
         assert all(t == ConstraintType.INEQUALITY for _, t, _ in constraints)
 
     def test_wrong_dimension_is_rejected(self, servicer):

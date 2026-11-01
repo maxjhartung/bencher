@@ -112,16 +112,17 @@ def _pest_control_score(
 
 
 def _gramacy(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
-    f = np.sum(x)
+    f = float(np.sum(x))
 
-    g0 = 3/2 - x[0]-2*x[1]-1/2 *np.sin(2*np.pi*(x[0]**2 - 2*x[1]))
-    g1 = x[0]**2 + x[1]**2 - 3/2
+    g1 = 3/2 - x[0]-2*x[1]-1/2 *np.sin(2*np.pi*(x[0]**2 - 2*x[1]))
+    g2 = x[0]**2 + x[1]**2 - 3/2
 
-    constraints = [('g0', ConstraintType.INEQUALITY, float(g0)),
-                 ('g1', ConstraintType.INEQUALITY, float(g1))
+    constraints = [
+                ('g1', ConstraintType.INEQUALITY, float(g1)),
+                ('g2', ConstraintType.INEQUALITY, float(g2))
                 ]
     
-    return float(f), constraints
+    return f, constraints
 
 
 
