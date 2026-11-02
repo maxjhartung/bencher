@@ -67,4 +67,3 @@ class TestDispatch:
         else:
             with pytest.raises(RuntimeError, match="no executable for architecture"):
                 mopta_executable_basename()
-
