@@ -112,6 +112,7 @@ def _pest_control_score(
 
 
 def _gramacy(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+    """https://doi.org/10.48550/arXiv.1403.4890"""
     f = float(np.sum(x))
 
     g1 = 3/2 - x[0]-2*x[1]-1/2 *np.sin(2*np.pi*(x[0]**2 - 2*x[1]))
