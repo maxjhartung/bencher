@@ -114,6 +114,7 @@ def _pest_control_score(
 
 
 def _welded_beam(x: np.ndarray) -> tuple[float, list[tuple[str, int, float]]]:
+    """ https://doi.org/10.1002/9781119454816 """
 
     f = float(1.10471 * x[0]**2 * x[1] + 0.04811 * x[2] * x[3] * (14.0 + x[1]))
 
