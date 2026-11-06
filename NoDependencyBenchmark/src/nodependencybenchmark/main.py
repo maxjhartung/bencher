@@ -37,6 +37,7 @@ BENCHMARKS = {
     "mopta08": {"dimensions": 124, "type": "purely_continuous"},
     "pestcontrol": {"dimensions": 25, "type": "purely_categorical"},
     "gramacy": {"dimensions": 2, "type": "purely_continuous"},
+    "pressure-vessel": {"dimensions": 4, "type": "mixed"},
 }
 
 SUPPORTED_BENCHMARKS = list(BENCHMARKS)
@@ -142,6 +143,35 @@ def _gramacy(x: np.ndarray) -> EvaluationResult:
         constraints=[
             Constraint(name="g0", type=ConstraintType.INEQUALITY, value=float(g0)),
             Constraint(name="g1", type=ConstraintType.INEQUALITY, value=float(g1)),
+        ],
+    )
+
+
+def _pressure_vessel(x: np.ndarray) -> EvaluationResult:
+    """Pressure vessel design problem of Kannan & Kramer (1994).
+    Bounds taken from Coello & Montes (2002). Under these bounds g3 is always satisfied
+    x = (shell thickness, head thickness, inner radius, length) in the native
+    domain; minimise the material, forming and welding cost subject to g0..g3 <= 0.
+    """
+    f = (
+        0.6224 * x[0] * x[2] * x[3]
+        + 1.7781 * x[1] * x[2] ** 2
+        + 3.1661 * x[0] ** 2 * x[3]
+        + 19.84 * x[0] ** 2 * x[2]
+    )
+
+    g0 = 0.0193 * x[2] - x[0]
+    g1 = 0.00954 * x[2] - x[1]
+    g2 = 1296000 - np.pi * x[2] ** 2 * x[3] - 4 / 3 * np.pi * x[2] ** 3
+    g3 = x[3] - 240
+
+    return EvaluationResult(
+        objectives=[ObjectiveValue(name="f0", value=float(f))],
+        constraints=[
+            Constraint(name="g0", type=ConstraintType.INEQUALITY, value=float(g0)),
+            Constraint(name="g1", type=ConstraintType.INEQUALITY, value=float(g1)),
+            Constraint(name="g2", type=ConstraintType.INEQUALITY, value=float(g2)),
+            Constraint(name="g3", type=ConstraintType.INEQUALITY, value=float(g3)),
         ],
     )
 
@@ -279,6 +309,21 @@ class NoDependencyServiceServicer(DualStackGRCPService):
                     f"Input shape {x.shape} does not match expected shape {expected_shape}"
                 )
             return _gramacy(x)
+        elif name == "pressure-vessel":
+            expected_shape = (BENCHMARKS["pressure-vessel"]["dimensions"],)
+            if x.shape != expected_shape:
+                raise ValueError(
+                    f"Input shape {x.shape} does not match expected shape {expected_shape}"
+                )
+            # scale [0, 1]^4 to the native domain; the thicknesses x1, x2 take
+            # one of 99 multiples of 0.0625, radius and length are continuous
+            lower_bounds = np.array([0.0625, 0.0625, 10.0, 10.0])
+            upper_bounds = np.array([6.1875, 6.1875, 200.0, 200.0])
+            n_levels = 99
+            level_index = np.minimum(np.floor(x[:2] * n_levels), n_levels - 1)
+            x_scaled = lower_bounds + (upper_bounds - lower_bounds) * x
+            x_scaled[:2] = (level_index + 1) * 0.0625
+            return _pressure_vessel(x_scaled)
         raise NotImplementedError(
             f"{name!r} is declared in BENCHMARKS but has no dispatch"
         )

@@ -13,6 +13,7 @@ from nodependencybenchmark.main import (
     BENCHMARKS,
     NoDependencyServiceServicer,
     _pest_control_score,
+    _pressure_vessel,
     mopta_executable_basename,
 )
 
@@ -28,7 +29,7 @@ def test_servicer_constructs_on_any_architecture(servicer):
 
 
 def test_registry_shape_is_declared():
-    assert set(BENCHMARKS) == {"mopta08", "pestcontrol", "gramacy"}
+    assert set(BENCHMARKS) == {"mopta08", "pestcontrol", "gramacy", "pressure-vessel"}
     assert BENCHMARKS["pestcontrol"]["dimensions"] == 25
 
 
@@ -133,3 +134,57 @@ class TestGramacy:
     def test_wrong_dimension_is_rejected(self, servicer):
         with pytest.raises(ValueError, match="does not match expected shape"):
             servicer.evaluate("gramacy", np.ones(3))
+
+
+class TestPressureVessel:
+    def test_published_optimum_is_feasible_with_g0_and_g2_active(self, servicer):
+        """Best known design (0.8125, 0.4375, 42.098446, 176.636596), f* ~ 6059.714."""
+        x = np.array(
+            [12.5 / 99, 6.5 / 99, (42.098446 - 10) / 190, (176.636596 - 10) / 190]
+        )
+        result = servicer.evaluate("pressure-vessel", x)
+        assert result.objectives[0].value == pytest.approx(6059.714, abs=1e-2)
+        g0, g1, g2, g3 = (c.value for c in result.constraints)
+        # g2 is a volume in cubic inches (~1.3e6 at the bound), hence the looser tolerance
+        assert abs(g0) < 1e-3 and abs(g2) < 1.0
+        assert g1 < 0 and g3 < 0
+
+    @pytest.mark.parametrize(
+        "unit, native",
+        [
+            (0.0, (0.0625, 0.0625, 10.0, 10.0)),
+            (1.0, (6.1875, 6.1875, 200.0, 200.0)),
+        ],
+    )
+    def test_unit_cube_corners_map_to_the_native_bounds(self, servicer, unit, native):
+        result = servicer.evaluate("pressure-vessel", np.full(4, unit))
+        expected = _pressure_vessel(np.array(native))
+        assert result.objectives[0].value == pytest.approx(expected.objectives[0].value)
+        assert [c.value for c in result.constraints] == pytest.approx(
+            [c.value for c in expected.constraints]
+        )
+
+    @pytest.mark.parametrize(
+        "unit, thickness",
+        [
+            (0.0, 0.0625),
+            (12.5 / 99, 0.8125),
+            (0.5, 3.125),
+            (1.0, 6.1875),
+        ],
+    )
+    def test_thicknesses_snap_to_multiples_of_0_0625(self, servicer, unit, thickness):
+        # with radius at its lower bound (10), g0 = 0.193 - x1 and g1 = 0.0954 - x2
+        result = servicer.evaluate("pressure-vessel", np.array([unit, unit, 0.0, 0.0]))
+        g0, g1, _, _ = (c.value for c in result.constraints)
+        assert 0.0193 * 10 - g0 == pytest.approx(thickness)
+        assert 0.00954 * 10 - g1 == pytest.approx(thickness)
+
+    def test_constraints_are_named_inequalities(self, servicer):
+        result = servicer.evaluate("pressure-vessel", np.full(4, 0.5))
+        assert [c.name for c in result.constraints] == ["g0", "g1", "g2", "g3"]
+        assert all(c.type == ConstraintType.INEQUALITY for c in result.constraints)
+
+    def test_wrong_dimension_is_rejected(self, servicer):
+        with pytest.raises(ValueError, match="does not match expected shape"):
+            servicer.evaluate("pressure-vessel", np.ones(3))
